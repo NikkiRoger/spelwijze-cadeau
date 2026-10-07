@@ -67,7 +67,7 @@
 </section>
 
 <section class="stats"><div><div class="statbig" id="moves">0</div><div class="statcopy">small moves this month</div></div><div class="tinyquote">Momentum isn't speed.<br>It's continuing.</div></section>
-<div class="footer">Prototype · progress currently stays on this device</div>
+<div class="footer" id="dbStatus">Connecting to Supabase…</div>
 </main>
 <div class="toast" id="toast">That counts. Keep going.</div>
 
@@ -79,11 +79,45 @@ share:{5:[["Show the work, not the campaign.",["Pick one real moment from what y
 connect:{5:[["Send one no-agenda message.",["Think of one musician whose work you genuinely like.","Send one specific thing you appreciated.","Do not add a link to your own music."],"Connection before networking."]],20:[["Start one tiny collaboration.",["Choose one artist you already know a little.","Propose one small exchange.","Make the ask easy to decline."],"Small collaborations beat vague ‘we should work together’ messages."]],60:[["Build your small-circle map.",["Write 5 peers, 5 potential collaborators and 5 people who support you.","Mark who you haven't spoken to in 90 days.","Reach out to three with a genuine reason."],"You don't need a huge network. You need an alive one."]]},
 reset:{5:[["Remember why this matters.",["Close your DAW and social apps.","Name one moment music made you feel fully alive.","Write one sentence about what you want to protect in your own work."],"Restoring direction is productive."]],20:[["Return to your three songs.",["Pick three songs that made you want to make music.","Listen without multitasking.","Write what they make you feel."],"Taste is part of your identity."]],60:[["Have an artist reset.",["Take a walk without music for 15 minutes.","Write what excites you and what drains you about your project.","Choose one thing to do less of this month."],"Momentum also means removing what pulls you sideways."]]}
 };
+const SUPABASE_URL="https://oxqevtmtjxmsxmsvczoz.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY="sb_publishable_nyDGZ9AkmUGU48aubjorzw_borCRbwi";
+let liveActions=[];
+let currentActionId=null;
+async function loadLiveActions(){
+  try{
+    const r=await fetch(SUPABASE_URL+"/rest/v1/actions?select=id,category,duration_minutes,title,steps,note&is_active=eq.true&order=id.asc",{
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY}
+    });
+    if(!r.ok) throw new Error("Supabase "+r.status);
+    liveActions=await r.json();
+    document.querySelector("#dbStatus").textContent="Supabase connected · "+liveActions.length+" live actions · progress still local";
+  }catch(e){
+    console.warn(e);
+    document.querySelector("#dbStatus").textContent="Offline fallback · progress stays on this device";
+  }
+}
+loadLiveActions();
 let t=5,c="create";
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 $$(".choice").forEach(b=>b.onclick=()=>{$$(".choice").forEach(x=>x.classList.remove("active"));b.classList.add("active");t=+b.dataset.time});
 $$(".cat").forEach(b=>b.onclick=()=>{$$(".cat").forEach(x=>x.classList.remove("active"));b.classList.add("active");c=b.dataset.cat});
-function pick(){const [title,steps,note]=bank[c][t][0];$("#actionTag").textContent=c.toUpperCase();$("#actionMinutes").textContent=t===60?"1 hour":t+" minutes";$("#actionTitle").textContent=title;$("#actionSteps").innerHTML=steps.map((s,i)=>`<li><span class="num">${i+1}</span><span>${s}</span></li>`).join("");$("#actionNote").textContent=note;$("#actionCard").classList.add("show");$("#actionCard").scrollIntoView({behavior:"smooth",block:"nearest"})}
+function pick(){
+  const candidates=liveActions.filter(a=>a.category===c && Number(a.duration_minutes)===t);
+  let title,steps,note;
+  if(candidates.length){
+    const a=candidates[Math.floor(Math.random()*candidates.length)];
+    currentActionId=a.id; title=a.title; steps=a.steps; note=a.note||"";
+  }else{
+    currentActionId=null; [title,steps,note]=bank[c][t][0];
+  }
+  $("#actionTag").textContent=c.toUpperCase();
+  $("#actionMinutes").textContent=t===60?"1 hour":t+" minutes";
+  $("#actionTitle").textContent=title;
+  $("#actionSteps").innerHTML=steps.map((s,i)=>`<li><span class="num">${i+1}</span><span>${s}</span></li>`).join("");
+  $("#actionNote").textContent=note;
+  $("#actionCard").classList.add("show");
+  $("#actionCard").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
 $("#getAction").onclick=pick;$("#another").onclick=pick;
 function key(){let d=new Date();return `indiethos-momentum-${d.getFullYear()}-${d.getMonth()+1}`}
 function refresh(){$("#moves").textContent=+(localStorage.getItem(key())||0)}
